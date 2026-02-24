@@ -11,13 +11,23 @@ Practical Python examples for the PinBridge SDK.
 
 ## Install Dependencies
 
-If using published SDK:
+Published SDK (PyPI):
+
+```bash
+pip install pinbridge-sdk>=0.1.3
+```
+
+PyPI project page:
+
+- https://pypi.org/project/pinbridge-sdk/
+
+Or install from this repo requirements file:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-If using local SDK from this workspace:
+If you want to use local SDK code from this workspace instead of PyPI:
 
 ```bash
 pip install -e ../python-sdk
