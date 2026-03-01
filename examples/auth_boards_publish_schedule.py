@@ -2,7 +2,7 @@
 1) Authenticate
 2) List boards
 3) Create board
-4) Upload image asset
+4) Upload local media asset
 5) Publish pin
 6) Schedule pin
 """
@@ -37,9 +37,14 @@ def main() -> int:
     email = _required_env("PINBRIDGE_EMAIL")
     password = _required_env("PINBRIDGE_PASSWORD")
     image_path = os.getenv("PINBRIDGE_IMAGE_PATH")
+    video_path = os.getenv("PINBRIDGE_VIDEO_PATH")
     image_url = os.getenv("PINBRIDGE_IMAGE_URL")
-    if not image_path and not image_url:
-        raise RuntimeError("Set either PINBRIDGE_IMAGE_PATH or PINBRIDGE_IMAGE_URL")
+    if not image_path and not video_path and not image_url:
+        raise RuntimeError(
+            "Set PINBRIDGE_IMAGE_PATH, PINBRIDGE_VIDEO_PATH, or PINBRIDGE_IMAGE_URL"
+        )
+    if image_path and video_path:
+        raise RuntimeError("Set only one of PINBRIDGE_IMAGE_PATH or PINBRIDGE_VIDEO_PATH")
 
     link_url = os.getenv("PINBRIDGE_LINK_URL")
     account_id_override = os.getenv("PINBRIDGE_ACCOUNT_ID")
@@ -138,6 +143,12 @@ def main() -> int:
             print("Uploading image asset...")
             guessed_content_type = guess_type(image_path)[0] or "application/octet-stream"
             asset = client.assets.upload_image(image_path, content_type=guessed_content_type)
+            asset_id = asset.id
+            print(f"Uploaded asset: {asset.id}")
+        elif video_path:
+            print("Uploading video asset...")
+            guessed_content_type = guess_type(video_path)[0] or "application/octet-stream"
+            asset = client.assets.upload_video(video_path, content_type=guessed_content_type)
             asset_id = asset.id
             print(f"Uploaded asset: {asset.id}")
 
