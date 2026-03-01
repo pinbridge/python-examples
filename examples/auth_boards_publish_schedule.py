@@ -2,8 +2,9 @@
 1) Authenticate
 2) List boards
 3) Create board
-4) Publish pin
-5) Schedule pin
+4) Upload image asset
+5) Publish pin
+6) Schedule pin
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 import os
 import sys
 from datetime import UTC, datetime, timedelta
+from mimetypes import guess_type
 from uuid import uuid4
 
 from pinbridge_sdk import APIError, PinbridgeClient
@@ -18,6 +20,7 @@ from pinbridge_sdk.models import (
     BoardCreateRequest,
     LoginRequest,
     PinCreate,
+    ProjectResponse,
     ScheduleCreate,
 )
 
@@ -33,7 +36,10 @@ def main() -> int:
     base_url = os.getenv("PINBRIDGE_BASE_URL", "https://api.pinbridge.io")
     email = _required_env("PINBRIDGE_EMAIL")
     password = _required_env("PINBRIDGE_PASSWORD")
-    image_url = _required_env("PINBRIDGE_IMAGE_URL")
+    image_path = os.getenv("PINBRIDGE_IMAGE_PATH")
+    image_url = os.getenv("PINBRIDGE_IMAGE_URL")
+    if not image_path and not image_url:
+        raise RuntimeError("Set either PINBRIDGE_IMAGE_PATH or PINBRIDGE_IMAGE_URL")
 
     link_url = os.getenv("PINBRIDGE_LINK_URL")
     account_id_override = os.getenv("PINBRIDGE_ACCOUNT_ID")
@@ -57,6 +63,9 @@ def main() -> int:
         "Scheduled via PinBridge Python SDK",
     )
     schedule_minutes = int(os.getenv("PINBRIDGE_SCHEDULE_MINUTES", "60"))
+    project_mode = os.getenv("PINBRIDGE_PROJECT_MODE", "production").strip().lower()
+    if project_mode not in {"production", "sandbox"}:
+        raise RuntimeError("PINBRIDGE_PROJECT_MODE must be 'production' or 'sandbox'")
 
     with PinbridgeClient(base_url=base_url) as client:
         print("Authenticating...")
@@ -65,6 +74,25 @@ def main() -> int:
         print(
             f"Authenticated as {auth.user.email} in workspace '{auth.workspace.name}'"
         )
+
+        if project_mode == "sandbox":
+            context = client.projects.list()
+            sandbox_project: ProjectResponse | None = next(
+                (project for project in context.projects if project.environment.value == "sandbox"),
+                None,
+            )
+            if sandbox_project is None:
+                context = client.projects.create_sandbox()
+                sandbox_project = next(
+                    (project for project in context.projects if project.environment.value == "sandbox"),
+                    None,
+                )
+            if sandbox_project is None:
+                raise RuntimeError("Failed to create or find sandbox project")
+
+            switch_result = client.projects.switch({"project_id": str(sandbox_project.id)})
+            client.set_bearer_token(switch_result.access_token)
+            print(f"Switched to sandbox project: {sandbox_project.id} ({sandbox_project.name})")
 
         accounts = client.pinterest.list_accounts()
         if not accounts:
@@ -105,34 +133,42 @@ def main() -> int:
         )
         print(f"Created board: {new_board.id} ({new_board.name})")
 
+        asset_id = None
+        if image_path:
+            print("Uploading image asset...")
+            guessed_content_type = guess_type(image_path)[0] or "application/octet-stream"
+            asset = client.assets.upload_image(image_path, content_type=guessed_content_type)
+            asset_id = asset.id
+            print(f"Uploaded asset: {asset.id}")
+
         print("Publishing a pin...")
-        published_pin = client.pins.create(
-            PinCreate(
-                account_id=account.id,
-                board_id=new_board.id,
-                title=pin_title,
-                description=pin_description,
-                link_url=link_url,
-                image_url=image_url,
-                idempotency_key=f"sdk-publish-{uuid4()}",
-            )
+        pin_payload = PinCreate(
+            account_id=account.id,
+            board_id=new_board.id,
+            title=pin_title,
+            description=pin_description,
+            link_url=link_url,
+            asset_id=asset_id,
+            image_url=image_url,
+            idempotency_key=f"sdk-publish-{uuid4()}",
         )
+        published_pin = client.pins.create(pin_payload)
         print(
             f"Published pin request accepted: {published_pin.id} status={published_pin.status.value}"
         )
 
         print("Scheduling a pin...")
-        schedule = client.schedules.create(
-            ScheduleCreate(
-                account_id=account.id,
-                run_at=datetime.now(UTC) + timedelta(minutes=schedule_minutes),
-                board_id=new_board.id,
-                title=scheduled_pin_title,
-                description=scheduled_pin_description,
-                link_url=link_url,
-                image_url=image_url,
-            )
+        schedule_payload = ScheduleCreate(
+            account_id=account.id,
+            run_at=datetime.now(UTC) + timedelta(minutes=schedule_minutes),
+            board_id=new_board.id,
+            title=scheduled_pin_title,
+            description=scheduled_pin_description,
+            link_url=link_url,
+            asset_id=asset_id,
+            image_url=image_url,
         )
+        schedule = client.schedules.create(schedule_payload)
         print(f"Created schedule: {schedule.id} run_at={schedule.run_at.isoformat()}")
 
     print("Done.")
