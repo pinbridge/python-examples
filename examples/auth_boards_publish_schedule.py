@@ -40,9 +40,7 @@ def main() -> int:
     video_path = os.getenv("PINBRIDGE_VIDEO_PATH")
     image_url = os.getenv("PINBRIDGE_IMAGE_URL")
     if not image_path and not video_path and not image_url:
-        raise RuntimeError(
-            "Set PINBRIDGE_IMAGE_PATH, PINBRIDGE_VIDEO_PATH, or PINBRIDGE_IMAGE_URL"
-        )
+        raise RuntimeError("Set PINBRIDGE_IMAGE_PATH, PINBRIDGE_VIDEO_PATH, or PINBRIDGE_IMAGE_URL")
     if image_path and video_path:
         raise RuntimeError("Set only one of PINBRIDGE_IMAGE_PATH or PINBRIDGE_VIDEO_PATH")
 
@@ -57,12 +55,8 @@ def main() -> int:
     board_privacy = os.getenv("PINBRIDGE_BOARD_PRIVACY")
 
     pin_title = os.getenv("PINBRIDGE_PIN_TITLE", "My SDK Published Pin")
-    pin_description = os.getenv(
-        "PINBRIDGE_PIN_DESCRIPTION", "Published via PinBridge Python SDK"
-    )
-    scheduled_pin_title = os.getenv(
-        "PINBRIDGE_SCHEDULED_PIN_TITLE", "My SDK Scheduled Pin"
-    )
+    pin_description = os.getenv("PINBRIDGE_PIN_DESCRIPTION", "Published via PinBridge Python SDK")
+    scheduled_pin_title = os.getenv("PINBRIDGE_SCHEDULED_PIN_TITLE", "My SDK Scheduled Pin")
     scheduled_pin_description = os.getenv(
         "PINBRIDGE_SCHEDULED_PIN_DESCRIPTION",
         "Scheduled via PinBridge Python SDK",
@@ -76,9 +70,7 @@ def main() -> int:
         print("Authenticating...")
         auth = client.auth.login(LoginRequest(email=email, password=password))
         client.set_bearer_token(auth.access_token)
-        print(
-            f"Authenticated as {auth.user.email} in workspace '{auth.workspace.name}'"
-        )
+        print(f"Authenticated as {auth.user.email} in workspace '{auth.workspace.name}'")
 
         if project_mode == "sandbox":
             context = client.projects.list()
@@ -89,7 +81,11 @@ def main() -> int:
             if sandbox_project is None:
                 context = client.projects.create_sandbox()
                 sandbox_project = next(
-                    (project for project in context.projects if project.environment.value == "sandbox"),
+                    (
+                        project
+                        for project in context.projects
+                        if project.environment.value == "sandbox"
+                    ),
                     None,
                 )
             if sandbox_project is None:
@@ -108,18 +104,14 @@ def main() -> int:
             return 1
 
         if account_id_override:
-            account = next(
-                (a for a in accounts if str(a.id) == account_id_override), None
-            )
+            account = next((a for a in accounts if str(a.id) == account_id_override), None)
             if account is None:
                 raise RuntimeError(
                     f"PINBRIDGE_ACCOUNT_ID={account_id_override} was not found in connected accounts."
                 )
         else:
             account = accounts[0]
-        print(
-            f"Using Pinterest account: {account.id} ({account.display_name or account.username})"
-        )
+        print(f"Using Pinterest account: {account.id} ({account.display_name or account.username})")
 
         print("Listing boards...")
         boards = client.pinterest.list_boards(account.id)
