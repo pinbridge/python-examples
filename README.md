@@ -2,8 +2,9 @@
 
 Examples aligned with PinBridge SDK v1.0.0.
 
-Practical Python examples for the PinBridge SDK, covering basic reads, auth flows,
-publishing, scheduling, webhooks, billing, and a few advanced client patterns.
+Practical Python examples for the PinBridge SDK, covering every SDK resource:
+system, auth, Pinterest, assets, pins/imports/jobs, schedules, webhooks, billing,
+projects, API keys, and advanced client patterns.
 
 ## Prerequisites
 
@@ -41,15 +42,25 @@ pip install -e ../python-sdk
 Basic examples:
 
 - `examples/health_root.py`:
-  Check the root endpoint and health status.
+  Check root, health, and readiness endpoints.
+- `examples/system_readiness_and_webhooks.py`:
+  Check readiness and optionally forward a Stripe webhook payload.
 - `examples/auth_and_profile.py`:
   Log in with email/password and inspect the authenticated workspace/profile context.
+- `examples/auth_full_lifecycle.py`:
+  Demonstrate register, profile update, email verification, and password recovery/change APIs.
 - `examples/pinterest_accounts_and_boards.py`:
   List connected Pinterest accounts and boards, with optional board create/delete steps.
+- `examples/pinterest_oauth_callback_and_disconnect.py`:
+  Run OAuth callback handling and optionally revoke a connected Pinterest account.
 - `examples/publish_from_image_url.py`:
   Publish a pin from a hosted image URL.
 - `examples/upload_and_publish_local_media.py`:
   Upload a local image or video and publish it as a pin.
+- `examples/assets_retrieve_and_download.py`:
+  Fetch asset metadata and download raw asset content bytes.
+- `examples/pins_bulk_import_and_management.py`:
+  Create/list/delete pins and run JSON/CSV import jobs with status lookups.
 - `examples/schedules_lifecycle.py`:
   Create, fetch, list, and optionally cancel a schedule.
 - `examples/webhooks_lifecycle.py`:
@@ -60,6 +71,8 @@ Basic examples:
   Run a small local HTTP receiver that validates PinBridge webhook deliveries.
 - `examples/billing_and_rate_meter.py`:
   Inspect pricing, billing status, and rate-meter capacity.
+- `examples/billing_checkout_flow.py`:
+  Generate a checkout URL for a requested plan and billing cycle.
 - `examples/api_keys_lifecycle.py`:
   Create an API key, update its metadata, and revoke it.
 - `examples/projects_sandbox.py`:
@@ -131,6 +144,57 @@ Tests:
   Delete the example board after creation.
 - `PINBRIDGE_RESET_SANDBOX=1`:
   Reset the sandbox in `projects_sandbox.py`.
+- `PINBRIDGE_FORWARD_STRIPE_WEBHOOK=1`:
+  Enable webhook forwarding in `system_readiness_and_webhooks.py`.
+- `PINBRIDGE_STRIPE_WEBHOOK_BODY`:
+  Raw JSON payload for `system_readiness_and_webhooks.py`.
+- `PINBRIDGE_STRIPE_SIGNATURE`:
+  Stripe signature header value for `system_readiness_and_webhooks.py`.
+- `PINBRIDGE_REGISTER_USER=1`:
+  Use user registration flow in `auth_full_lifecycle.py`.
+- `PINBRIDGE_REGISTER_FULL_NAME`
+- `PINBRIDGE_REGISTER_EMAIL`
+- `PINBRIDGE_REGISTER_PASSWORD`
+- `PINBRIDGE_REGISTER_WORKSPACE_NAME`
+- `PINBRIDGE_REGISTER_TIMEZONE`:
+  Registration inputs for `auth_full_lifecycle.py` when register mode is enabled.
+- `PINBRIDGE_UPDATE_PROFILE=1`:
+  Enable profile update in `auth_full_lifecycle.py`.
+- `PINBRIDGE_PROFILE_FULL_NAME`
+- `PINBRIDGE_PROFILE_WORKSPACE_NAME`
+- `PINBRIDGE_PROFILE_COMPANY_NAME`
+- `PINBRIDGE_PROFILE_COMPANY_WEBSITE`
+- `PINBRIDGE_PROFILE_BILLING_EMAIL`
+- `PINBRIDGE_PROFILE_BILLING_PHONE`:
+  Optional profile fields for `auth_full_lifecycle.py`.
+- `PINBRIDGE_REQUEST_EMAIL_VERIFICATION=1`:
+  Trigger verification email request in `auth_full_lifecycle.py`.
+- `PINBRIDGE_EMAIL_VERIFICATION_TOKEN`:
+  Verification token used by `auth_full_lifecycle.py`.
+- `PINBRIDGE_REQUEST_PASSWORD_RESET=1`:
+  Trigger forgot-password request in `auth_full_lifecycle.py`.
+- `PINBRIDGE_PASSWORD_RESET_TOKEN`
+- `PINBRIDGE_NEW_PASSWORD`:
+  Reset-password inputs used by `auth_full_lifecycle.py`.
+- `PINBRIDGE_CHANGE_PASSWORD=1`:
+  Enable password change in `auth_full_lifecycle.py`.
+- `PINBRIDGE_CURRENT_PASSWORD`
+- `PINBRIDGE_NEXT_PASSWORD`:
+  Change-password inputs used by `auth_full_lifecycle.py`.
+- `PINBRIDGE_OAUTH_CODE`
+- `PINBRIDGE_OAUTH_STATE`
+- `PINBRIDGE_OAUTH_FOLLOW_REDIRECTS=1`:
+  OAuth callback inputs for `pinterest_oauth_callback_and_disconnect.py`.
+- `PINBRIDGE_REVOKE_ACCOUNT_ID`:
+  Account id to revoke in `pinterest_oauth_callback_and_disconnect.py`.
+- `PINBRIDGE_REVOKE_FIRST_ACCOUNT=1`:
+  Revoke the first connected account in `pinterest_oauth_callback_and_disconnect.py`.
+- `PINBRIDGE_ASSET_ID`:
+  Existing asset id for `assets_retrieve_and_download.py`.
+- `PINBRIDGE_ASSET_OUTPUT_PATH`:
+  Optional local file path to write downloaded bytes in `assets_retrieve_and_download.py`.
+- `PINBRIDGE_DELETE_CREATED_PIN=1`:
+  Delete the created pin in `pins_bulk_import_and_management.py`.
 - `PINBRIDGE_CANCEL_SCHEDULE=1`:
   Cancel the created schedule in `schedules_lifecycle.py`.
 - `PINBRIDGE_WEBHOOK_URL`
@@ -146,6 +210,10 @@ Tests:
   Port for `webhook_receiver.py`. Defaults to `8787`.
 - `PINBRIDGE_CREATE_PORTAL=1`:
   Generate a billing portal URL in `billing_and_rate_meter.py`.
+- `PINBRIDGE_CHECKOUT_PLAN`:
+  Target plan (`free|starter|growth|pro|enterprise`) for `billing_checkout_flow.py`.
+- `PINBRIDGE_CHECKOUT_CYCLE`:
+  Billing cycle (`monthly|annual`) for `billing_checkout_flow.py`.
 - `SHOPIFY_PRODUCT_ID`
 - `SHOPIFY_PRODUCT_TITLE`
 - `SHOPIFY_PRODUCT_DESCRIPTION`

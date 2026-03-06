@@ -10,6 +10,8 @@ UUID1 = "11111111-1111-1111-1111-111111111111"
 UUID2 = "22222222-2222-2222-2222-222222222222"
 UUID3 = "33333333-3333-3333-3333-333333333333"
 UUID4 = "44444444-4444-4444-4444-444444444444"
+UUID5 = "55555555-5555-5555-5555-555555555555"
+UUID6 = "66666666-6666-6666-6666-666666666666"
 TS = "2026-02-23T12:00:00Z"
 
 
@@ -18,21 +20,46 @@ def root_response() -> dict:
 
 
 def health_response() -> dict:
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "environment": "test",
+        "checks": {"database": "ok", "redis": "ok"},
+    }
+
+
+def readiness_response() -> dict:
     return {"status": "ok", "version": "1.0.0", "environment": "test", "database": "ok"}
 
 
-def auth_response() -> dict:
-    workspace = {
+def auth_workspace_response() -> dict:
+    return {
         "id": UUID2,
         "name": "SDK Workspace",
         "environment": "production",
+        "timezone": "UTC",
         "plan": "starter",
     }
+
+
+def auth_user_response() -> dict:
+    return {
+        "id": UUID1,
+        "email": "dev@pinbridge.io",
+        "full_name": "SDK User",
+        "timezone": "UTC",
+        "email_verified": True,
+        "created_at": TS,
+    }
+
+
+def auth_response() -> dict:
+    workspace = auth_workspace_response()
     return {
         "access_token": "jwt-token",
         "token_type": "bearer",
         "expires_in": 3600,
-        "user": {"id": UUID1, "email": "dev@pinbridge.io", "full_name": None, "created_at": TS},
+        "user": auth_user_response(),
         "organization": {"id": UUID3, "name": "SDK Org"},
         "active_project": workspace,
         "projects": [workspace],
@@ -56,10 +83,10 @@ def profile_response() -> dict:
         "full_name": "SDK User",
         "email": "dev@pinbridge.io",
         "workspace_name": "SDK Workspace",
-        "company_name": None,
-        "company_website": None,
-        "billing_email": None,
-        "billing_phone": None,
+        "company_name": "PinBridge",
+        "company_website": "https://pinbridge.io",
+        "billing_email": "billing@pinbridge.io",
+        "billing_phone": "+1-555-0100",
         "tax_id": None,
         "address_line1": None,
         "address_line2": None,
@@ -68,6 +95,13 @@ def profile_response() -> dict:
         "address_postal_code": None,
         "address_country": None,
     }
+
+
+def updated_profile_response() -> dict:
+    payload = profile_response()
+    payload["workspace_name"] = "SDK Workspace Updated"
+    payload["company_name"] = "PinBridge SDK"
+    return payload
 
 
 def pinterest_account_response() -> dict:
@@ -127,6 +161,37 @@ def job_status_response() -> dict:
         "pinterest_pin_id": None,
         "error_code": None,
         "error_message": None,
+    }
+
+
+def import_job_response(*, job_id: str, source_type: str) -> dict:
+    return {
+        "id": job_id,
+        "workspace_id": UUID2,
+        "source_type": source_type,
+        "status": "processing",
+        "source_filename": "pins.csv" if source_type == "csv" else None,
+        "total_rows": 1,
+        "processed_rows": 1,
+        "created_rows": 1,
+        "existing_rows": 0,
+        "failed_rows": 0,
+        "results": [
+            {
+                "row_number": 1,
+                "status": "created",
+                "pin_id": UUID1,
+                "schedule_id": None,
+                "idempotency_key": "idem-import-1",
+                "error_code": None,
+                "error_message": None,
+            }
+        ],
+        "error_message": None,
+        "started_at": TS,
+        "completed_at": None,
+        "created_at": TS,
+        "updated_at": TS,
     }
 
 
@@ -227,6 +292,8 @@ def pricing_catalog_response() -> dict:
                 "monthly_overage": None,
                 "quota_calls_monthly": 1000,
                 "pinterest_accounts_limit": 2,
+                "uploaded_media_assets": True,
+                "bulk_imports": True,
                 "overage_billing_threshold_pins": 100,
                 "monthly_price": {
                     "billing_cycle": "monthly",
@@ -248,6 +315,7 @@ def pricing_catalog_response() -> dict:
 def billing_status_response() -> dict:
     return {
         "plan": "starter",
+        "billing_cycle": "monthly",
         "billing_status": "active",
         "current_period_start": TS,
         "current_period_end": TS,
@@ -257,6 +325,8 @@ def billing_status_response() -> dict:
         "overage_pins_used": 0,
         "quota_reset_at": TS,
         "pinterest_accounts_limit": 2,
+        "uploaded_media_assets": True,
+        "bulk_imports": True,
         "overage_billing_threshold_pins": 100,
     }
 
@@ -301,28 +371,88 @@ def build_transport() -> httpx.MockTransport:
             return httpx.Response(200, json=root_response())
         if method == "GET" and path == "/healthz":
             return httpx.Response(200, json=health_response())
+        if method == "GET" and path == "/readyz":
+            return httpx.Response(200, json=readiness_response())
+        if method == "POST" and path == "/v1/stripe/webhook":
+            return httpx.Response(200, json={"status": "accepted"})
+
+        if method == "POST" and path == "/v1/auth/register":
+            return httpx.Response(200, json=auth_response())
         if method == "POST" and path == "/v1/auth/login":
             return httpx.Response(200, json=auth_response())
+        if method == "POST" and path == "/v1/auth/forgot-password":
+            return httpx.Response(200, json={"message": "Password reset email sent"})
+        if method == "POST" and path == "/v1/auth/reset-password":
+            return httpx.Response(200, json={"message": "Password reset complete"})
+        if method == "POST" and path == "/v1/auth/change-password":
+            return httpx.Response(200, json={"message": "Password changed"})
+        if method == "POST" and path == "/v1/auth/email/verify/request":
+            return httpx.Response(200, json={"message": "Verification email sent"})
+        if method == "GET" and path == "/v1/auth/email/verify":
+            return httpx.Response(200, json={"message": "Email verified"})
         if method == "GET" and path == "/v1/auth/me":
             return httpx.Response(200, json=me_response())
         if method == "GET" and path == "/v1/auth/profile":
             return httpx.Response(200, json=profile_response())
+        if method == "PUT" and path == "/v1/auth/profile":
+            return httpx.Response(200, json=updated_profile_response())
+
+        if method == "GET" and path == "/v1/pinterest/oauth/start":
+            return httpx.Response(
+                200, json={"authorization_url": "https://pinterest.com/oauth/demo"}
+            )
+        if method == "GET" and path == "/v1/pinterest/oauth/callback":
+            return httpx.Response(
+                200,
+                json={"status": "connected", "message": "Account linked", "account_id": UUID4},
+            )
         if method == "GET" and path == "/v1/pinterest/accounts":
             return httpx.Response(200, json=[pinterest_account_response()])
+        if method == "DELETE" and path == f"/v1/pinterest/accounts/{UUID4}":
+            return httpx.Response(204)
         if method == "GET" and path == "/v1/pinterest/boards":
             return httpx.Response(200, json=[board_response()])
         if method == "POST" and path == "/v1/pinterest/boards":
             return httpx.Response(200, json=board_response())
         if method == "DELETE" and path == "/v1/pinterest/boards/123-board":
             return httpx.Response(204)
+
         if method == "POST" and path in {"/v1/assets/images", "/v1/assets/videos"}:
             return httpx.Response(200, json=asset_response())
+        if method == "GET" and path == f"/v1/assets/{UUID3}":
+            return httpx.Response(200, json=asset_response())
+        if method == "GET" and path == f"/v1/assets/{UUID3}/content":
+            return httpx.Response(200, content=b"\x89PNG\r\n\x1a\nmock-content")
+
         if method == "POST" and path == "/v1/pins":
             return httpx.Response(200, json=pin_response())
         if method == "GET" and path == f"/v1/pins/{UUID1}":
             return httpx.Response(200, json=pin_response())
+        if method == "GET" and path == "/v1/pins":
+            return httpx.Response(200, json=[pin_response()])
+        if method == "DELETE" and path == f"/v1/pins/{UUID1}":
+            return httpx.Response(204)
+
+        if method == "POST" and path == "/v1/pins/imports/json":
+            return httpx.Response(200, json=import_job_response(job_id=UUID5, source_type="json"))
+        if method == "POST" and path == "/v1/pins/imports/csv":
+            return httpx.Response(200, json=import_job_response(job_id=UUID6, source_type="csv"))
+        if method == "GET" and path == f"/v1/pins/imports/{UUID5}":
+            return httpx.Response(200, json=import_job_response(job_id=UUID5, source_type="json"))
+        if method == "GET" and path == f"/v1/pins/imports/{UUID6}":
+            return httpx.Response(200, json=import_job_response(job_id=UUID6, source_type="csv"))
+        if method == "GET" and path == "/v1/pins/imports":
+            return httpx.Response(
+                200,
+                json=[
+                    import_job_response(job_id=UUID6, source_type="csv"),
+                    import_job_response(job_id=UUID5, source_type="json"),
+                ],
+            )
+
         if method == "GET" and path == f"/v1/jobs/{UUID1}":
             return httpx.Response(200, json=job_status_response())
+
         if method == "POST" and path == "/v1/schedules":
             return httpx.Response(200, json=schedule_response())
         if method == "GET" and path == f"/v1/schedules/{UUID3}":
@@ -333,6 +463,7 @@ def build_transport() -> httpx.MockTransport:
             payload = schedule_response()
             payload["status"] = "canceled"
             return httpx.Response(200, json=payload)
+
         if method == "POST" and path == "/v1/webhooks":
             return httpx.Response(200, json=webhook_response())
         if method == "PATCH" and path == f"/v1/webhooks/{UUID3}":
@@ -345,6 +476,7 @@ def build_transport() -> httpx.MockTransport:
             return httpx.Response(200, json=[webhook_response()])
         if method == "DELETE" and path == f"/v1/webhooks/{UUID3}":
             return httpx.Response(204)
+
         if method == "POST" and path == "/v1/api-keys":
             return httpx.Response(200, json=api_key_create_response())
         if method == "GET" and path == "/v1/api-keys":
@@ -355,6 +487,7 @@ def build_transport() -> httpx.MockTransport:
             return httpx.Response(200, json=payload)
         if method == "DELETE" and path == f"/v1/api-keys/{UUID3}":
             return httpx.Response(204)
+
         if method == "GET" and path == "/v1/projects":
             return httpx.Response(200, json=projects_context_response())
         if method == "POST" and path == "/v1/projects/sandbox":
@@ -363,14 +496,19 @@ def build_transport() -> httpx.MockTransport:
             return httpx.Response(200, json=project_switch_response())
         if method == "POST" and path == "/v1/projects/sandbox/reset":
             return httpx.Response(200, json=projects_context_response())
+
         if method == "GET" and path == "/v1/billing/pricing":
             return httpx.Response(200, json=pricing_catalog_response())
         if method == "GET" and path == "/v1/billing/status":
             return httpx.Response(200, json=billing_status_response())
+        if method == "POST" and path == "/v1/billing/checkout":
+            return httpx.Response(200, json={"url": "https://billing.example.com/checkout"})
         if method == "POST" and path == "/v1/billing/portal":
             return httpx.Response(200, json={"url": "https://billing.example.com/portal"})
+
         if method == "GET" and path == "/v1/rate-meter":
             return httpx.Response(200, json=rate_meter_response())
+
         raise AssertionError(f"Unhandled request: {method} {path}")
 
     return httpx.MockTransport(handler)
@@ -410,7 +548,21 @@ def test_health_root(monkeypatch, capsys):
     module = import_example("health_root")
     patch_sync_client(monkeypatch, module, transport=build_transport())
     assert module.main() == 0
-    assert "Health: status=ok" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "Health: status=ok" in output
+    assert "Readiness: status=ok" in output
+
+
+def test_system_readiness_and_webhooks(monkeypatch, capsys):
+    module = import_example("system_readiness_and_webhooks")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_FORWARD_STRIPE_WEBHOOK", "1")
+    monkeypatch.setenv("PINBRIDGE_STRIPE_SIGNATURE", "t=1,v1=abc123")
+    monkeypatch.setenv("PINBRIDGE_STRIPE_WEBHOOK_BODY", '{"type":"invoice.paid"}')
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Readiness: status=ok" in output
+    assert "Stripe webhook forwarded: accepted" in output
 
 
 def test_auth_and_profile(monkeypatch, capsys):
@@ -420,6 +572,34 @@ def test_auth_and_profile(monkeypatch, capsys):
     monkeypatch.setenv("PINBRIDGE_PASSWORD", "super-secret-123")
     assert module.main() == 0
     assert "Authenticated as: dev@pinbridge.io" in capsys.readouterr().out
+
+
+def test_auth_full_lifecycle(monkeypatch, capsys):
+    module = import_example("auth_full_lifecycle")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+
+    monkeypatch.setenv("PINBRIDGE_REGISTER_USER", "1")
+    monkeypatch.setenv("PINBRIDGE_REGISTER_FULL_NAME", "SDK User")
+    monkeypatch.setenv("PINBRIDGE_REGISTER_EMAIL", "dev@pinbridge.io")
+    monkeypatch.setenv("PINBRIDGE_REGISTER_PASSWORD", "super-secret-123")
+
+    monkeypatch.setenv("PINBRIDGE_UPDATE_PROFILE", "1")
+    monkeypatch.setenv("PINBRIDGE_REQUEST_EMAIL_VERIFICATION", "1")
+    monkeypatch.setenv("PINBRIDGE_EMAIL_VERIFICATION_TOKEN", "verify-token")
+    monkeypatch.setenv("PINBRIDGE_REQUEST_PASSWORD_RESET", "1")
+    monkeypatch.setenv("PINBRIDGE_PASSWORD_RESET_TOKEN", "tok_1234567890123456789012")
+    monkeypatch.setenv("PINBRIDGE_NEW_PASSWORD", "new-password-123")
+    monkeypatch.setenv("PINBRIDGE_CHANGE_PASSWORD", "1")
+    monkeypatch.setenv("PINBRIDGE_CURRENT_PASSWORD", "super-secret-123")
+    monkeypatch.setenv("PINBRIDGE_NEXT_PASSWORD", "super-secret-456")
+
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Registered new user:" in output
+    assert "Profile updated for workspace:" in output
+    assert "Email verification result:" in output
+    assert "Password reset result:" in output
+    assert "Password change result:" in output
 
 
 def test_api_keys_lifecycle(monkeypatch, capsys):
@@ -443,6 +623,20 @@ def test_projects_sandbox(monkeypatch, capsys):
     assert "Switched active project to sandbox" in capsys.readouterr().out
 
 
+def test_pinterest_oauth_callback_and_disconnect(monkeypatch, capsys):
+    module = import_example("pinterest_oauth_callback_and_disconnect")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_EMAIL", "dev@pinbridge.io")
+    monkeypatch.setenv("PINBRIDGE_PASSWORD", "super-secret-123")
+    monkeypatch.setenv("PINBRIDGE_OAUTH_CODE", "oauth-code")
+    monkeypatch.setenv("PINBRIDGE_OAUTH_STATE", "oauth-state")
+    monkeypatch.setenv("PINBRIDGE_REVOKE_FIRST_ACCOUNT", "1")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "OAuth callback result: connected" in output
+    assert "Revoked account:" in output
+
+
 def test_publish_from_image_url(monkeypatch, capsys):
     module = import_example("publish_from_image_url")
     patch_sync_client(monkeypatch, module, transport=build_transport())
@@ -462,6 +656,42 @@ def test_upload_and_publish_local_media(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("PINBRIDGE_IMAGE_PATH", str(image_path))
     assert module.main() == 0
     assert "Media source: uploaded image pin.png" in capsys.readouterr().out
+
+
+def test_assets_retrieve_and_download(monkeypatch, tmp_path, capsys):
+    module = import_example("assets_retrieve_and_download")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+
+    image_path = tmp_path / "pin.png"
+    output_path = tmp_path / "downloaded.bin"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    monkeypatch.setenv("PINBRIDGE_API_KEY", "pb_test")
+    monkeypatch.setenv("PINBRIDGE_IMAGE_PATH", str(image_path))
+    monkeypatch.setenv("PINBRIDGE_ASSET_OUTPUT_PATH", str(output_path))
+
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Asset id:" in output
+    assert "Downloaded bytes:" in output
+    assert output_path.exists()
+    assert output_path.read_bytes() == b"\x89PNG\r\n\x1a\nmock-content"
+
+
+def test_pins_bulk_import_and_management(monkeypatch, capsys):
+    module = import_example("pins_bulk_import_and_management")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+
+    monkeypatch.setenv("PINBRIDGE_API_KEY", "pb_test")
+    monkeypatch.setenv("PINBRIDGE_IMAGE_URL", "https://example.com/image.jpg")
+    monkeypatch.setenv("PINBRIDGE_DELETE_CREATED_PIN", "1")
+
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Created pin:" in output
+    assert "JSON import job:" in output
+    assert "CSV import job:" in output
+    assert "Deleted the created pin" in output
 
 
 def test_schedules_lifecycle(monkeypatch, capsys):
@@ -494,6 +724,19 @@ def test_billing_and_rate_meter(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Current plan: starter" in output
     assert "Customer portal URL:" in output
+
+
+def test_billing_checkout_flow(monkeypatch, capsys):
+    module = import_example("billing_checkout_flow")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_EMAIL", "dev@pinbridge.io")
+    monkeypatch.setenv("PINBRIDGE_PASSWORD", "super-secret-123")
+    monkeypatch.setenv("PINBRIDGE_CHECKOUT_PLAN", "growth")
+    monkeypatch.setenv("PINBRIDGE_CHECKOUT_CYCLE", "annual")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Requested checkout: plan=growth cycle=annual" in output
+    assert "Checkout URL:" in output
 
 
 def test_async_publish_workflow(monkeypatch, capsys):

@@ -9,14 +9,14 @@ def main() -> int:
     with make_sync_client() as client:
         root = client.system.root()
         health = client.system.health()
+        readiness = client.system.readiness()
 
     print(f"Service: {root.service}")
     print(f"Version: {root.version}")
     print(f"Docs: {root.docs}")
-    print(
-        "Health: "
-        f"status={health.status} environment={health.environment} database={health.database}"
-    )
+    checks = ",".join(sorted((health.checks or {}).keys())) or "none"
+    print(f"Health: status={health.status} environment={health.environment} checks={checks}")
+    print(f"Readiness: status={readiness.status} database={readiness.database}")
     return 0
 
 
