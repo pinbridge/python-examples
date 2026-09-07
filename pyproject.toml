@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pinbridge-python-examples"
-version = "0.2.0"
+version = "0.3.0"
 description = "Runnable examples and smoke tests for the PinBridge Python SDK"
 authors = ["PinBridge"]
 package-mode = false

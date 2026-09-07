@@ -16,20 +16,20 @@ TS = "2026-02-23T12:00:00Z"
 
 
 def root_response() -> dict:
-    return {"service": "PinBridge API", "version": "1.0.0", "docs": "/docs"}
+    return {"service": "PinBridge API", "version": "1.26.0", "docs": "/docs"}
 
 
 def health_response() -> dict:
     return {
         "status": "ok",
-        "version": "1.0.0",
+        "version": "1.26.0",
         "environment": "test",
         "checks": {"database": "ok", "redis": "ok"},
     }
 
 
 def readiness_response() -> dict:
-    return {"status": "ok", "version": "1.0.0", "environment": "test", "database": "ok"}
+    return {"status": "ok", "version": "1.26.0", "environment": "test", "database": "ok"}
 
 
 def auth_workspace_response() -> dict:
@@ -294,6 +294,7 @@ def pricing_catalog_response() -> dict:
                 "pinterest_accounts_limit": 2,
                 "uploaded_media_assets": True,
                 "bulk_imports": True,
+                "activity_log_retention_days": 30,
                 "overage_billing_threshold_pins": 100,
                 "monthly_price": {
                     "billing_cycle": "monthly",
@@ -362,6 +363,120 @@ def asset_response() -> dict:
     }
 
 
+def asset_list_response() -> dict:
+    return {
+        "assets": [asset_response()],
+        "total": 1,
+        "storage_used_bytes": 68,
+        "storage_quota_bytes": 10_000,
+        "storage_used_percent": 1,
+    }
+
+
+def asset_delete_response() -> dict:
+    return {
+        "deleted": True,
+        "requires_confirmation": False,
+        "referenced_pin_count": 0,
+        "freed_bytes": 68,
+    }
+
+
+def bulk_asset_delete_response() -> dict:
+    return {
+        "deleted": [UUID3],
+        "requires_confirmation": [],
+        "total_freed_bytes": 68,
+        "deleted_items": [
+            {
+                "asset_id": UUID3,
+                "workspace_id": UUID2,
+                "original_filename": "pin.png",
+                "file_size_bytes": 68,
+                "referenced_pin_count": 0,
+                "freed_bytes": 68,
+            }
+        ],
+        "requires_confirmation_items": [],
+    }
+
+
+def bulk_operation_response() -> dict:
+    return {
+        "succeeded_count": 1,
+        "skipped_count": 0,
+        "failed_count": 0,
+        "results": [{"id": UUID1, "status": "succeeded"}],
+    }
+
+
+def team_member_response() -> dict:
+    return {
+        "id": UUID1,
+        "organization_id": UUID3,
+        "user_id": UUID1,
+        "role": "admin",
+        "invited_by_user_id": None,
+        "accepted_at": TS,
+        "created_at": TS,
+        "updated_at": TS,
+        "user": auth_user_response(),
+        "invited_by": None,
+    }
+
+
+def team_members_list_response() -> dict:
+    return {"items": [team_member_response()]}
+
+
+def team_invitation_response() -> dict:
+    return {
+        "id": UUID4,
+        "organization_id": UUID3,
+        "email": "teammate@pinbridge.io",
+        "role": "editor",
+        "invited_by_user_id": UUID1,
+        "expires_at": TS,
+        "accepted_at": None,
+        "revoked_at": None,
+        "created_at": TS,
+        "updated_at": TS,
+        "inviter_name": "SDK User",
+        "inviter_email": "dev@pinbridge.io",
+    }
+
+
+def team_invitations_list_response() -> dict:
+    return {"items": [team_invitation_response()]}
+
+
+def team_action_response() -> dict:
+    return {"message": "Done"}
+
+
+def mcp_quota_response() -> dict:
+    return {
+        "week": "2026-W09",
+        "requests_used": 12,
+        "requests_limit": 100,
+        "quota_exhausted": False,
+        "resets_at": "2026-03-02T00:00:00Z",
+    }
+
+
+def email_preferences_response() -> dict:
+    return {
+        "id": UUID1,
+        "workspace_id": UUID2,
+        "user_id": UUID1,
+        "transactional_enabled": True,
+        "alerts_enabled": False,
+        "verification_enabled": True,
+        "created_at": TS,
+        "updated_at": TS,
+    }
+
+
 def build_transport() -> httpx.MockTransport:
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -423,6 +538,12 @@ def build_transport() -> httpx.MockTransport:
             return httpx.Response(200, json=asset_response())
         if method == "GET" and path == f"/v1/assets/{UUID3}/content":
             return httpx.Response(200, content=b"\x89PNG\r\n\x1a\nmock-content")
+        if method == "GET" and path == "/v1/assets":
+            return httpx.Response(200, json=asset_list_response())
+        if method == "DELETE" and path == f"/v1/assets/{UUID3}":
+            return httpx.Response(200, json=asset_delete_response())
+        if method == "DELETE" and path == "/v1/assets":
+            return httpx.Response(200, json=bulk_asset_delete_response())
 
         if method == "POST" and path == "/v1/pins":
             return httpx.Response(200, json=pin_response())
@@ -432,6 +553,10 @@ def build_transport() -> httpx.MockTransport:
             return httpx.Response(200, json=[pin_response()])
         if method == "DELETE" and path == f"/v1/pins/{UUID1}":
             return httpx.Response(204)
+        if method == "POST" and path == f"/v1/pins/{UUID1}/retry":
+            return httpx.Response(200, json=pin_response())
+        if method == "POST" and path in {"/v1/pins/bulk-delete", "/v1/pins/bulk-retry"}:
+            return httpx.Response(200, json=bulk_operation_response())
 
         if method == "POST" and path == "/v1/pins/imports/json":
             return httpx.Response(200, json=import_job_response(job_id=UUID5, source_type="json"))
@@ -463,6 +588,18 @@ def build_transport() -> httpx.MockTransport:
             payload = schedule_response()
             payload["status"] = "canceled"
             return httpx.Response(200, json=payload)
+        if method == "POST" and path == f"/v1/schedules/{UUID3}/retry":
+            payload = schedule_response()
+            payload["status"] = "queued"
+            return httpx.Response(200, json=payload)
+        if method == "DELETE" and path == f"/v1/schedules/{UUID3}":
+            return httpx.Response(204)
+        if method == "POST" and path in {
+            "/v1/schedules/bulk-cancel",
+            "/v1/schedules/bulk-retry",
+            "/v1/schedules/bulk-delete",
+        }:
+            return httpx.Response(200, json=bulk_operation_response())
 
         if method == "POST" and path == "/v1/webhooks":
             return httpx.Response(200, json=webhook_response())
@@ -508,6 +645,31 @@ def build_transport() -> httpx.MockTransport:
 
         if method == "GET" and path == "/v1/rate-meter":
             return httpx.Response(200, json=rate_meter_response())
+
+        if method == "GET" and path == "/v1/team/members":
+            return httpx.Response(200, json=team_members_list_response())
+        if method == "GET" and path == "/v1/team/invitations":
+            return httpx.Response(200, json=team_invitations_list_response())
+        if method == "POST" and path == "/v1/team/invitations":
+            return httpx.Response(201, json=team_invitation_response())
+        if method == "POST" and path == f"/v1/team/invitations/{UUID4}/resend":
+            return httpx.Response(200, json=team_invitation_response())
+        if method == "DELETE" and path == f"/v1/team/invitations/{UUID4}":
+            return httpx.Response(200, json=team_action_response())
+        if method == "PATCH" and path == f"/v1/team/members/{UUID1}":
+            return httpx.Response(200, json=team_member_response())
+
+        if method == "GET" and path == "/v1/mcp/quota":
+            return httpx.Response(200, json=mcp_quota_response())
+        if method == "POST" and path == "/v1/mcp/track":
+            return httpx.Response(200, json=mcp_quota_response())
+
+        if method == "GET" and path == "/v1/email/preferences":
+            return httpx.Response(200, json=email_preferences_response())
+        if method == "PATCH" and path == "/v1/email/preferences":
+            payload = email_preferences_response()
+            payload["alerts_enabled"] = True
+            return httpx.Response(200, json=payload)
 
         raise AssertionError(f"Unhandled request: {method} {path}")
 
@@ -814,3 +976,75 @@ def test_recipe_multi_account_campaign(monkeypatch, capsys):
     monkeypatch.setenv("PINBRIDGE_IMAGE_URL", "https://cdn.example.com/demo.jpg")
     assert module.main() == 0
     assert "Fan-out complete across 1 account(s)" in capsys.readouterr().out
+
+
+def test_assets_manage_and_cleanup(monkeypatch, capsys):
+    module = import_example("assets_manage_and_cleanup")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_API_KEY", "pb_test")
+    monkeypatch.setenv("PINBRIDGE_DELETE_ASSETS", "1")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Assets: 1 of 1" in output
+    assert "Deleted asset: deleted=True" in output
+    assert "Bulk delete: deleted=1" in output
+
+
+def test_pins_retry_and_bulk_ops(monkeypatch, capsys):
+    module = import_example("pins_retry_and_bulk_ops")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_API_KEY", "pb_test")
+    monkeypatch.setenv("PINBRIDGE_DELETE_PINS", "1")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Retried pin:" in output
+    assert "Bulk retry: succeeded=1" in output
+    assert "Bulk delete: succeeded=1" in output
+
+
+def test_schedules_bulk_management(monkeypatch, capsys):
+    module = import_example("schedules_bulk_management")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_API_KEY", "pb_test")
+    monkeypatch.setenv("PINBRIDGE_MUTATE_SCHEDULES", "1")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Retried schedule:" in output
+    assert "Bulk cancel: succeeded=1" in output
+    assert "Deleted schedule:" in output
+
+
+def test_team_members_and_invitations(monkeypatch, capsys):
+    module = import_example("team_members_and_invitations")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_EMAIL", "dev@pinbridge.io")
+    monkeypatch.setenv("PINBRIDGE_PASSWORD", "super-secret-123")
+    monkeypatch.setenv("PINBRIDGE_MANAGE_TEAM", "1")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Team members: 1" in output
+    assert "Created invitation:" in output
+    assert "Revoked invitation:" in output
+
+
+def test_email_preferences(monkeypatch, capsys):
+    module = import_example("email_preferences")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_EMAIL", "dev@pinbridge.io")
+    monkeypatch.setenv("PINBRIDGE_PASSWORD", "super-secret-123")
+    monkeypatch.setenv("PINBRIDGE_UPDATE_EMAIL_PREFERENCES", "1")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "Current preferences:" in output
+    assert "Updated preferences:" in output
+
+
+def test_mcp_quota_and_track(monkeypatch, capsys):
+    module = import_example("mcp_quota_and_track")
+    patch_sync_client(monkeypatch, module, transport=build_transport())
+    monkeypatch.setenv("PINBRIDGE_API_KEY", "pb_test")
+    monkeypatch.setenv("PINBRIDGE_TRACK_MCP", "1")
+    assert module.main() == 0
+    output = capsys.readouterr().out
+    assert "MCP quota (2026-W09):" in output
+    assert "After track:" in output
