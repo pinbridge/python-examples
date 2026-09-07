@@ -61,8 +61,20 @@ Basic examples:
   Fetch asset metadata and download raw asset content bytes.
 - `examples/pins_bulk_import_and_management.py`:
   Create/list/delete pins and run JSON/CSV import jobs with status lookups.
+- `examples/pins_retry_and_bulk_ops.py`:
+  Retry a failed pin and run bulk retry/delete over existing pins.
+- `examples/assets_manage_and_cleanup.py`:
+  List workspace assets and clean up storage with single and bulk deletes.
 - `examples/schedules_lifecycle.py`:
   Create, fetch, list, and optionally cancel a schedule.
+- `examples/schedules_bulk_management.py`:
+  Retry, delete, and bulk cancel/retry/delete scheduled pins.
+- `examples/team_members_and_invitations.py`:
+  List members and manage the invitation lifecycle for the organization.
+- `examples/email_preferences.py`:
+  Read and update the signed-in user's email preferences.
+- `examples/mcp_quota_and_track.py`:
+  Inspect and increment the workspace's weekly MCP request quota.
 - `examples/webhooks_lifecycle.py`:
   Create, update, fetch, list, and delete a webhook.
 - `examples/webhook_signature_verification.py`:
@@ -144,6 +156,22 @@ Tests:
   Delete the example board after creation.
 - `PINBRIDGE_RESET_SANDBOX=1`:
   Reset the sandbox in `projects_sandbox.py`.
+- `PINBRIDGE_DELETE_ASSETS=1`:
+  Enable the delete/bulk-delete steps in `assets_manage_and_cleanup.py`.
+- `PINBRIDGE_DELETE_PINS=1`:
+  Enable the bulk-delete step in `pins_retry_and_bulk_ops.py`.
+- `PINBRIDGE_MUTATE_SCHEDULES=1`:
+  Enable retry/delete/bulk steps in `schedules_bulk_management.py`.
+- `PINBRIDGE_MANAGE_TEAM=1`:
+  Enable invitation/member mutations in `team_members_and_invitations.py`.
+- `PINBRIDGE_INVITE_EMAIL`, `PINBRIDGE_INVITE_ROLE`:
+  Invitation target and role for `team_members_and_invitations.py`.
+- `PINBRIDGE_UPDATE_EMAIL_PREFERENCES=1`:
+  Enable the update step in `email_preferences.py`.
+- `PINBRIDGE_EMAIL_TRANSACTIONAL`, `PINBRIDGE_EMAIL_ALERTS`, `PINBRIDGE_EMAIL_VERIFICATION`:
+  New preference values for `email_preferences.py` when updating.
+- `PINBRIDGE_TRACK_MCP=1`:
+  Enable the counter-increment step in `mcp_quota_and_track.py`.
 - `PINBRIDGE_FORWARD_STRIPE_WEBHOOK=1`:
   Enable webhook forwarding in `system_readiness_and_webhooks.py`.
 - `PINBRIDGE_STRIPE_WEBHOOK_BODY`:
